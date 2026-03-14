@@ -1,0 +1,5 @@
+# requirements.txt
+qrcode==7.4.2
+PyYAML==6.0.1
+maxapi==0.9.16
+python-dotenv

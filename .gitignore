@@ -1,0 +1,32 @@
+# Игнорировать виртуальные окружения
+venv/
+.env/
+.venv/
+env/
+
+# Игнорировать файлы с переменными окружения
+.env
+.env.local
+.yaml
+
+# Игнорировать кэш Python
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version
+
+# Игнорировать логи
+*.log
+logs/
+
+# Игнорировать базы данных
+*.db
+*.sqlite3
+bot_data.db
+
+# Игнорировать IDE/редакторы
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

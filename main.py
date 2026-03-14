@@ -1,4 +1,4 @@
-# max_main.py
+# main.py
 import asyncio
 import logging
 import signal

@@ -1,4 +1,4 @@
-# main.py
+# max_main.py
 import asyncio
 import logging
 import signal
@@ -49,7 +49,7 @@ PAYLOAD_TO_PURPOSE = {
     "payment_donate": "Добровольное пожертвование",
 }
 
-# Клавиатура главного меню (одно место — нет дублирования)
+# Клавиатура главного меню
 MAIN_MENU_BUTTONS = [
     [("Горячее питание", "payment_hotmeal")],
     [("Организационный взнос", "payment_org")],
@@ -81,6 +81,19 @@ def create_keyboard_attachments(
 def get_main_keyboard() -> List[Attachment]:
     """Возвращает клавиатуру главного меню."""
     return create_keyboard_attachments(MAIN_MENU_BUTTONS)
+
+
+async def notify_admin(bot: Bot, message: str):
+    """Отправляет служебное сообщение администратору, если указан ADMIN_CHAT_ID."""
+    if settings.ADMIN_CHAT_ID:
+        try:
+            await bot.send_message(
+                chat_id=settings.ADMIN_CHAT_ID,
+                text=message
+            )
+            logger.debug(f"Уведомление администратору отправлено: {message}")
+        except Exception as e:
+            logger.error(f"Не удалось отправить уведомление администратору: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -192,6 +205,16 @@ async def handle_message(event: MessageCreated):
                 attachments=[media],
             )
 
+            # Уведомление администратору об успешном платеже
+            await notify_admin(
+                event.bot,
+                f"💰 Новый платёж:\n"
+                f"Пользователь: {user_id}\n"
+                f"Назначение: {full_purpose}\n"
+                f"Сумма: {amount}\n"
+                f"ID QR: {qr_data['qr_code_id']}"
+            )
+
             # Очищаем состояние пользователя
             del user_states[user_id]
 
@@ -202,8 +225,13 @@ async def handle_message(event: MessageCreated):
                 attachments=get_main_keyboard(),
             )
 
-        except Exception:
+        except Exception as e:
             logger.exception("Ошибка при генерации или отправке QR")
+            # Уведомление администратору об ошибке
+            await notify_admin(
+                event.bot,
+                f"❌ Ошибка у пользователя {user_id}:\n{str(e)}"
+            )
             user_states.pop(user_id, None)
             await event.message.answer(
                 text="Произошла ошибка. Попробуйте снова. Выберите назначение платежа:",
@@ -246,6 +274,9 @@ async def wait_for_shutdown_signal():
 async def main():
     logger.info("Запуск MAX бота в режиме polling...")
 
+    # Уведомление о запуске
+    await notify_admin(bot, "✅ Бот запущен. Режим polling.")
+
     try:
         polling_task = asyncio.create_task(dp.start_polling(bot))
         signal_task = asyncio.create_task(wait_for_shutdown_signal())
@@ -264,6 +295,9 @@ async def main():
 
     finally:
         logger.info("Закрытие ресурсов...")
+        # Уведомление об остановке (перед закрытием session)
+        await notify_admin(bot, "🛑 Бот остановлен.")
+
         if hasattr(bot, "session") and bot.session and not bot.session.closed:
             await bot.session.close()
         close_connection(conn)
@@ -280,4 +314,6 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Принудительная остановка по Ctrl+C")
+        # При Ctrl+C уведомление не отправится, т.к. цикл событий прерван.
+        # Можно добавить отдельную обработку, но в данном случае оставим как есть.
         close_connection(conn)

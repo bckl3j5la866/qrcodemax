@@ -1,4 +1,4 @@
-# max_main.py
+# max_main.py (обновлённый)
 import asyncio
 import logging
 import signal
@@ -85,15 +85,15 @@ def get_main_keyboard() -> List[Attachment]:
 
 async def notify_admin(bot: Bot, message: str):
     """Отправляет служебное сообщение администратору, если указан ADMIN_CHAT_ID."""
+    logger.info(f"notify_admin вызвана. ADMIN_CHAT_ID = {settings.ADMIN_CHAT_ID}")
     if settings.ADMIN_CHAT_ID:
         try:
-            await bot.send_message(
-                chat_id=settings.ADMIN_CHAT_ID,
-                text=message
-            )
-            logger.debug(f"Уведомление администратору отправлено: {message}")
+            await bot.send_message(chat_id=settings.ADMIN_CHAT_ID, text=message)
+            logger.info(f"✅ Уведомление успешно отправлено на {settings.ADMIN_CHAT_ID}")
         except Exception as e:
-            logger.error(f"Не удалось отправить уведомление администратору: {e}")
+            logger.error(f"❌ Ошибка при отправке уведомления: {e}")
+    else:
+        logger.warning("⚠️ ADMIN_CHAT_ID не задан, уведомление не отправлено")
 
 
 # ---------------------------------------------------------------------------
@@ -191,9 +191,8 @@ async def handle_message(event: MessageCreated):
                 user_id=user_id,
             )
 
-            # Отправка QR-кода через встроенный механизм maxapi
+            # Отправка QR-кода пользователю
             image_bytes = qr_data["buffer"].getvalue()
-
             media = InputMediaBuffer(
                 buffer=image_bytes,
                 filename="qrcode.png",
@@ -265,7 +264,6 @@ async def wait_for_shutdown_signal():
         logger.warning(
             "Обработка сигналов не поддерживается. Используйте Ctrl+C."
         )
-        # Windows: ждём бесконечно — KeyboardInterrupt прервёт
         await asyncio.Event().wait()
 
     await shutdown_event.wait()
@@ -295,7 +293,7 @@ async def main():
 
     finally:
         logger.info("Закрытие ресурсов...")
-        # Уведомление об остановке (перед закрытием session)
+        # Уведомление об остановке
         await notify_admin(bot, "🛑 Бот остановлен.")
 
         if hasattr(bot, "session") and bot.session and not bot.session.closed:
@@ -306,7 +304,6 @@ async def main():
 
 
 if __name__ == "__main__":
-    # Фикс для Windows — предотвращает SSL ошибки при закрытии
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
@@ -314,6 +311,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Принудительная остановка по Ctrl+C")
-        # При Ctrl+C уведомление не отправится, т.к. цикл событий прерван.
-        # Можно добавить отдельную обработку, но в данном случае оставим как есть.
         close_connection(conn)
